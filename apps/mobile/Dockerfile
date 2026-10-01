@@ -27,7 +27,7 @@ COPY apps/mobile apps/mobile
 RUN npm run build --workspace @social-network/shared \
  && npm run build:prod --workspace @social-network/mobile
 
-FROM nginx:1.29-alpine AS runtime
+FROM nginx:1.31-alpine AS runtime
 
 COPY apps/mobile/docker/nginx.conf /etc/nginx/conf.d/default.conf
 COPY apps/mobile/docker/app-headers.conf /etc/nginx/snippets/app-headers.conf
