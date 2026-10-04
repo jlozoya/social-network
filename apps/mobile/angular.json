@@ -87,9 +87,7 @@
           "builder": "@angular/build:dev-server",
           "options": {
             "prebundle": {
-              "exclude": [
-                "@ionic/pwa-elements"
-              ]
+              "exclude": ["@ionic/pwa-elements"]
             },
             "port": 8100,
             "host": "localhost"
