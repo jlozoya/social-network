@@ -43,7 +43,7 @@
     "google-auth-library": "^11.1.0",
     "graphql": "^16.14.2",
     "graphql-query-complexity": "^2.0.0",
-    "graphql-upload": "^17.1.0",
+    "graphql-upload": "^18.0.1",
     "graphql-ws": "^6.3.0",
     "helmet": "^8.3.0",
     "ioredis": "^6.0.0",
