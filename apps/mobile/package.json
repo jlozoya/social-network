@@ -59,7 +59,7 @@
   "devDependencies": {
     "@angular-eslint/schematics": "^22.5.0",
     "@angular/build": "^22.2.1",
-    "@angular/cli": "^22.2.1",
+    "@angular/cli": "^22.2.3",
     "@angular/compiler": "^22.2.1",
     "@angular/compiler-cli": "^22.2.1",
     "@angular/language-service": "^22.2.1",
