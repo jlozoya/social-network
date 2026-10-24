@@ -69,7 +69,9 @@ jobs:
 
   e2e:
     name: Pruebas de extremo a extremo
-    runs-on: ubuntu-latest
+    # MongoDB 8 no arranca con los kernels 6.19+ de Ubuntu 26.04.
+    # https://jira.mongodb.org/browse/SERVER-121912
+    runs-on: ubuntu-24.04
     services:
       mongo:
         image: mongo:8
