@@ -15,7 +15,14 @@ name: Android
 
 on:
   workflow_dispatch:
+    inputs:
+      backend:
+        description: Backend de la aplicación
+        type: choice
+        options: [sites, legacy]
+        default: sites
   push:
+    branches: ['fernando/play-internal-*']
     tags: ['v*']
 
 permissions:
@@ -24,6 +31,8 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      APP_BACKEND: ${{ inputs.backend == 'legacy' && 'legacy' || 'sites' }}
     steps:
       - uses: actions/checkout@v7
 
@@ -42,14 +51,28 @@ jobs:
 
       - name: Compilar la aplicación
         run: |
-          npm run build:shared
-          npm run build:prod --workspace @social-network/mobile
+          if [ "$APP_BACKEND" = "sites" ]; then
+            cd sites/social-network
+            npm ci
+            npm run typecheck
+            npm run test:backend
+            SOCIAL_NETWORK_SITES_URL="https://social-network-lozoya.neatloon16.chatgpt.site" npm run build:mobile
+          else
+            npm run build:shared
+            npm run build:prod --workspace @social-network/mobile
+          fi
 
       - name: Generar el proyecto de Android
         working-directory: apps/mobile
+        env:
+          ANDROID_VERSION_CODE: ${{ github.run_number }}
         run: |
+          if [ "$APP_BACKEND" = "sites" ]; then
+            export SOCIAL_NETWORK_SITES_URL="https://social-network-lozoya.neatloon16.chatgpt.site"
+          fi
           npx cap add android
           npx cap sync android
+          node scripts/configure-sites-android.mjs
 
       - name: Compilar
         working-directory: apps/mobile/android

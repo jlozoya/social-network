@@ -19,3 +19,6 @@ apps/mobile/ios/
 apps/mobile/credentials.json
 apps/mobile/google-services.json
 apps/mobile/GoogleService-Info.plist
+
+# Sites es un proyecto independiente con su propio starter y comprobaciones.
+sites/social-network/

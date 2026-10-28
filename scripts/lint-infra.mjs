@@ -50,6 +50,8 @@ function docker(image, args, label) {
 
 const dockerfiles = tracked('**/Dockerfile');
 const scripts = tracked('*.sh');
+const sitesScripts = scripts.filter((file) => file.startsWith('sites/'));
+const appScripts = scripts.filter((file) => !file.startsWith('sites/'));
 
 const results = [
   docker(ACTIONLINT, ['-color'], 'Flujos de GitHub Actions (actionlint)'),
@@ -58,8 +60,16 @@ const results = [
     ['hadolint', '--config', '/repo/.hadolint.yaml', ...dockerfiles],
     `Dockerfile (hadolint): ${dockerfiles.join(', ')}`,
   ),
-  scripts.length === 0 ||
-    docker(SHELLCHECK, scripts, `Guiones (shellcheck): ${scripts.join(', ')}`),
+  appScripts.length === 0 ||
+    docker(SHELLCHECK, appScripts, `Guiones (shellcheck): ${appScripts.join(', ')}`),
+  // Los helpers mantenidos de Sites pasan expresiones literales a otro shell.
+  // SC2016 marca esas expansiones diferidas intencionales; conservar las demás reglas.
+  sitesScripts.length === 0 ||
+    docker(
+      SHELLCHECK,
+      ['--exclude=SC2016', ...sitesScripts],
+      'Helpers mantenidos de Sites (shellcheck)',
+    ),
 ];
 
 if (results.some((ok) => !ok)) {

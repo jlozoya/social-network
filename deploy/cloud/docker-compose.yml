@@ -1,0 +1,71 @@
+# API y aplicación web con MongoDB Atlas y Redis externo con TLS.
+# La web pública de presentación y soporte puede vivir en ChatGPT Sites.
+name: social-network-cloud
+
+services:
+  caddy:
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+      - '443:443/udp'
+    environment:
+      DOMAIN: ${DOMAIN:?Configura el dominio de la aplicación web}
+      API_DOMAIN: ${API_DOMAIN:?Configura el dominio de la API}
+      ACME_EMAIL: ${ACME_EMAIL:?Configura el correo para los certificados}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - api
+      - web
+
+  api:
+    image: ${API_IMAGE:-ghcr.io/jlozoya/social-network-api:latest}
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: ${DATABASE_URL:?Configura la conexión de MongoDB Atlas}
+      DATABASE_POOL_SIZE: ${DATABASE_POOL_SIZE:-5}
+      REDIS_URL: ${REDIS_URL:?Configura la conexión de Redis}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?Configura JWT_ACCESS_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?Configura JWT_REFRESH_SECRET}
+      MFA_ENCRYPTION_KEY: ${MFA_ENCRYPTION_KEY:?Configura MFA_ENCRYPTION_KEY}
+      APP_URL: https://${API_DOMAIN}
+      CLIENT_URL: https://${DOMAIN}
+      CORS_ORIGINS: ${CORS_ORIGINS:?Configura los orígenes de la web y de Capacitor}
+      STORAGE_ROOT: /data/uploads
+    volumes:
+      - uploads:/data/uploads
+
+  web:
+    image: ${WEB_IMAGE:-ghcr.io/jlozoya/social-network-web:latest}
+    restart: unless-stopped
+    environment:
+      APP_API_URL: https://${API_DOMAIN}
+      APP_GRAPHQL_URL: https://${API_DOMAIN}/graphql
+      APP_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      APP_GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_API_KEY:-}
+      APP_FACEBOOK_APP_ID: ${FACEBOOK_APP_ID:-}
+      APP_NAME: ${APP_NAME:-Social Network}
+      APP_TAGLINE: ${APP_TAGLINE:-}
+      APP_DESCRIPTION: ${APP_DESCRIPTION:-}
+      APP_LOGO_URL: ${APP_LOGO_URL:-}
+      APP_ICON_URL: ${APP_ICON_URL:-}
+      APP_BRAND_COLOR: ${APP_BRAND_COLOR:-}
+      APP_BRAND_GRADIENT: ${APP_BRAND_GRADIENT:-}
+      APP_WEBSITE: ${APP_WEBSITE:-}
+      APP_PUBLIC_MAIL: ${APP_PUBLIC_MAIL:-}
+      APP_PHONE: ${APP_PHONE:-}
+      APP_ADDRESS: ${APP_ADDRESS:-}
+      APP_FACEBOOK: ${APP_FACEBOOK:-}
+      APP_INSTAGRAM: ${APP_INSTAGRAM:-}
+
+volumes:
+  caddy-data:
+  caddy-config:
+  uploads:

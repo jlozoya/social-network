@@ -30,7 +30,8 @@ en tiempo de ejecución.
 
 ## Puesta en marcha
 
-Requisitos: **Node.js 22.12 o superior** y **npm 10.9 o superior**.
+Requisitos: **Node.js 22.22.3+, 24.15.0+ o 26+** y **npm 10.9 o superior**.
+Se recomienda Node.js 24, como en CI y en las imágenes de Docker.
 
 ```bash
 npm install
@@ -107,6 +108,24 @@ El seed deja una cuenta por rol (`admin@social-network.test`, `supervisor@social
 | `npm run test:e2e`       | Pruebas de extremo a extremo de la API      |
 | `docker compose up -d`   | Levanta MongoDB para desarrollo             |
 | `docker compose down -v` | Lo para y borra sus datos                   |
+
+### Dependencias y seguridad
+
+TypeScript se mantiene en 6.0 porque Angular 22 y `typescript-eslint` aún no
+admiten la versión 7. GraphQL se mantiene en 16 y `graphql-upload` en 17 para
+respetar la compatibilidad de Apollo Server 5.
+
+El `override` de Vite en `package.json` permite que `@angular/build` use una
+versión corregida de la serie 8.3, en lugar de la 8.3.0 que fija Angular 22.2.3.
+Se puede retirar cuando Angular incorpore una versión corregida.
+
+Para revisar las dependencias, ejecuta
+`npm outdated --workspaces --include-workspace-root`, `npm audit` y
+`npm audit --omit=dev`. Al 21 de octubre de 2026, la auditoría de producción no
+tiene avisos; la auditoría completa mantiene diez avisos de desarrollo derivados
+de [`braces`, sin parche publicado](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm),
+que llega a través de Stylelint. Actualizar Stylelint y sus dependencias cuando
+publiquen una corrección; no se han silenciado los avisos.
 
 ### Qué revisa el lint
 
@@ -298,15 +317,52 @@ aplica el guardado antes de que arranque Angular. La paleta está en
 
 ## Publicación
 
+La web pública está en [Social Network](https://social-network-lozoya.neatloon16.chatgpt.site).
+
+La variante alojada en ChatGPT Sites está en
+[`sites/social-network`](sites/social-network/README.md): usa D1 para los datos,
+R2 para las fotos y Ably para los avisos en tiempo real. Su primera versión
+incluye perfiles, publicaciones, comentarios, reacciones, seguimiento, chat y
+moderación, con acceso por contraseña o ChatGPT. El backend NestJS y la app
+Ionic originales siguen disponibles como variante `legacy`.
+
+El flujo Android permite elegir `sites` o `legacy`. En Sites empaqueta la interfaz React localmente, se conecta a la API por HTTPS y configura el retorno de acceso con ChatGPT mediante PKCE.
+Las funciones de tienda, historias, directos, OAuth para terceros y MFA del
+backend anterior no forman parte de esta primera versión de Sites.
+
 `.github/workflows/ci.yml` comprueba tipos, estilo, pruebas unitarias y de
 extremo a extremo —con MongoDB de verdad— y que el esquema publicado coincide
 con el código. Al pasar en `master`, `deploy.yml` construye las imágenes de
 Docker de la API y de la web —`social-network-api` y `social-network-web`—, las sube a GHCR y, si el servidor está
 configurado, las despliega por SSH con `docker compose` y comprueba la salud.
-`android.yml` compila el APK y el paquete de Android.
+`android.yml` compila el APK y el paquete de Android. El trabajo `sites` de CI
+comprueba los tipos, los ocho recorridos del backend y las compilaciones web y móvil.
+
+Para preparar Android con Sites en PowerShell:
+
+```powershell
+cd sites/social-network
+npm ci
+$env:SOCIAL_NETWORK_SITES_URL="https://social-network-lozoya.neatloon16.chatgpt.site"
+npm run build:mobile
+cd ../../apps/mobile
+npx cap add android # Sólo la primera vez
+npx cap sync android
+node scripts/configure-sites-android.mjs
+```
+
+La sincronización de Capacitor no genera un AAB firmado. Para ello hacen falta
+el SDK de Android y la clave de firma, o los secretos del flujo Android en GitHub.
+Antes de subirlo a Play hay que probar en un dispositivo el acceso con ambos
+métodos, las cookies entre orígenes, las fotos privadas y el retorno de ChatGPT.
 
 En `deploy/` está el conjunto para el servidor: Caddy con HTTPS automático, la
 API, la web, MongoDB en «replica set», Redis y LiveKit.
+
+Para usar MongoDB Atlas y Upstash Redis externos, consulta
+[el despliegue cloud](deploy/cloud/README.md). Incluye un Compose independiente,
+un archivo de entorno de ejemplo y una comprobación de conexiones sin escribir
+datos. La web pública de soporte puede alojarse en ChatGPT Sites.
 
 ## Estado
 

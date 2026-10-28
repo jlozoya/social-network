@@ -30,6 +30,27 @@ env:
   NODE_VERSION: '24'
 
 jobs:
+  sites:
+    name: Sites — tipos, privacidad y compilaciones
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sites/social-network
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: sites/social-network/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run test:backend
+      - run: npm run build
+      - run: npm run build:mobile
+        env:
+          SOCIAL_NETWORK_SITES_URL: https://social-network-lozoya.neatloon16.chatgpt.site
+
   checks:
     name: Tipos, lint y pruebas unitarias
     runs-on: ubuntu-latest

@@ -65,3 +65,6 @@ UserInterfaceState.xcuserstate
 apps/mobile/credentials.json
 apps/mobile/google-services.json
 apps/mobile/GoogleService-Info.plist
+
+# Clave de carga de Android y contraseña cifrada con Windows DPAPI
+/.android-signing/
