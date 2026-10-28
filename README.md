@@ -1,24 +1,27 @@
 # Social Network
 
-Red social completa: muro con reacciones y comentarios, historias que duran un
-día, vídeo en directo, mensajería con adjuntos y notas de voz, perfiles
-públicos o privados, buscador con etiquetas, avisos en tiempo real y una
-plataforma para que otras aplicaciones entren con OAuth 2.0, como la de
-Facebook.
+![Social Network: lo que importa, más cerca](.github/social-preview.png)
 
-El nombre, los colores, el logotipo y los enlaces **se configuran al
-desplegar**, no al compilar: lo que se ve arriba es sólo la marca por defecto.
-Ver [La marca](#la-marca).
+Red social para web y Android con perfiles públicos o privados, publicaciones
+con fotos, comentarios, reacciones, seguimiento, chat, bloqueos y moderación.
+La versión publicada usa **React, ChatGPT Sites, D1, R2, Ably y Capacitor**,
+con acceso por contraseña o ChatGPT.
 
-El proyecto es un **monorepo** con la aplicación y su API en el mismo
-repositorio. La API, que antes vivía aparte escrita en Lumen (PHP), se ha
-reescrito en TypeScript con NestJS.
+[Abrir Social Network](https://social-network-lozoya.neatloon16.chatgpt.site) ·
+[Instalar la beta de Android](https://play.google.com/apps/internaltest/4701543898566185898) ·
+[Desarrollo en Sites](sites/social-network/README.md)
+
+El repositorio también conserva la aplicación Ionic/Angular y la API NestJS
+anteriores como variante `legacy`, con historias, directos, tienda y OAuth
+para otras aplicaciones. Esas funciones adicionales pertenecen a esa variante.
 
 ```
 social-network/
+├── sites/
+│   └── social-network/ React + API Sites — D1, R2 y Ably (versión publicada)
 ├── apps/
-│   ├── api/          API GraphQL — NestJS 12 + Mongoose 9 + MongoDB
-│   └── mobile/       Aplicación — Ionic 9 + Angular 22 + Capacitor 8
+│   ├── api/          API GraphQL legacy — NestJS + Mongoose + MongoDB
+│   └── mobile/       Contenedor Android de Sites y aplicación Ionic/Angular legacy
 └── packages/
     └── shared/       Contratos de dominio compartidos por ambos
 ```
@@ -27,6 +30,10 @@ social-network/
 los cuerpos de petición y respuesta una sola vez, de modo que si el servidor
 cambia la forma de un `Post`, la aplicación deja de compilar en lugar de fallar
 en tiempo de ejecución.
+
+Las instrucciones de puesta en marcha que siguen corresponden a la variante
+legacy. Para la versión publicada, consulta [Sites](sites/social-network/README.md)
+y [la publicación en Google Play](deploy/play/README.md).
 
 ## Puesta en marcha
 

@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640">
+  <rect width="1280" height="640" fill="#f7f8f5"/>
+  <rect x="32" y="32" width="1216" height="576" rx="32" fill="#e9f0e7"/>
+  <g transform="translate(80 76) scale(1.25)">
+    <rect width="64" height="64" rx="20" fill="#ed633c"/>
+    <text x="20" y="46" fill="#fffefa" font-family="Georgia,serif" font-size="54" font-weight="bold">s</text>
+    <circle cx="47" cy="44" r="4" fill="#fffefa"/>
+  </g>
+  <text x="184" y="112" fill="#20352c" font-family="Arial,sans-serif" font-size="34" font-weight="700">Social Network</text>
+  <text x="186" y="145" fill="#65756b" font-family="Arial,sans-serif" font-size="18" letter-spacing="2">CONEXIONES QUE IMPORTAN</text>
+  <text x="80" y="286" fill="#20352c" font-family="Arial,sans-serif" font-size="78" font-weight="600">Lo que importa,</text>
+  <text x="78" y="382" fill="#405b47" font-family="Georgia,serif" font-size="92" font-style="italic">más cerca.</text>
+  <text x="82" y="468" fill="#405b47" font-family="Arial,sans-serif" font-size="27">Perfiles · Publicaciones · Chat</text>
+  <text x="82" y="550" fill="#65756b" font-family="Arial,sans-serif" font-size="21">github.com/jlozoya/social-network</text>
+  <g stroke="#cedac4" stroke-width="10" stroke-linecap="round">
+    <path d="M1050 208V468M920 338H1180M958 246L1142 430M958 430L1142 246"/>
+  </g>
+  <rect x="909" y="253" width="216" height="149" rx="38" fill="#fffefa"/>
+  <path d="M967 385L951 432L1019 397" fill="#fffefa"/>
+  <circle cx="972" cy="328" r="12" fill="#ed633c"/>
+  <circle cx="1017" cy="328" r="12" fill="#ed633c"/>
+  <circle cx="1062" cy="328" r="12" fill="#ed633c"/>
+</svg>
