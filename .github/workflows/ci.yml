@@ -74,8 +74,8 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      - name: Pruebas unitarias de la API
-        run: npm run test:api
+      - name: Pruebas unitarias de la API y la aplicación
+        run: npm test
 
   infra:
     name: Flujos, Dockerfile y guiones

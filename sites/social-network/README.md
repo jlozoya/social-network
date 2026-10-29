@@ -83,7 +83,13 @@ Sites utiliza la disponibilidad y cuotas del plan de ChatGPT del propietario.
 
 Este proyecto tiene su propio `package-lock.json`; ejecutar las órdenes desde
 esta carpeta. El flujo de Sites usa los helpers del plugin para instalar,
-construir, guardar la fuente y publicar. Para trabajo independiente:
+construir, guardar la fuente y publicar.
+
+También admite `bun install` con Bun 1.4.2 y su propio `bun.lock`.
+Al actualizar dependencias, sincronizar ambos lockfiles; CI y los helpers
+de Sites siguen instalando con npm.
+
+Para trabajo independiente:
 
 ```sh
 npm ci

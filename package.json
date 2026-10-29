@@ -52,8 +52,7 @@
     "concurrently": "^10.0.6",
     "prettier": "^3.9.10",
     "rimraf": "^6.1.3",
-    "typescript": "6.0.3",
-    "xcode": "3.0.1"
+    "typescript": "6.0.3"
   },
   "overrides": {
     "tsup": {
@@ -82,7 +81,13 @@
     "@apollo/protobufjs@1.2.8": true,
     "@scarf/scarf@1.4.0": false
   },
-  "optionalDependencies": {
-    "gcp-metadata": "^7.0.1"
-  }
+  "trustedDependencies": [
+    "argon2",
+    "@swc/core",
+    "esbuild",
+    "lmdb",
+    "msgpackr-extract",
+    "@parcel/watcher",
+    "@apollo/protobufjs"
+  ]
 }

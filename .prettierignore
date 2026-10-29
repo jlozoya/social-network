@@ -5,11 +5,9 @@ www/
 coverage/
 .angular/
 package-lock.json
+bun.lock
 apps/api/schema.gql
 apps/api/storage/
-
-# Bibliotecas de terceros copiadas tal cual.
-apps/mobile/src/assets/js/
 
 # Las plataformas nativas se regeneran con Capacitor.
 apps/mobile/android/

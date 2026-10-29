@@ -8,6 +8,8 @@
 import '@angular/compiler';
 import { vi } from 'vitest';
 
+import './zone-flags';
+
 // Los plugins de Capacitor no existen fuera del dispositivo: se sustituyen por
 // una implementación en memoria para que los servicios que los usan puedan
 // probarse en Node.

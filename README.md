@@ -44,6 +44,12 @@ Se recomienda Node.js 24, como en CI y en las imágenes de Docker.
 npm install
 ```
 
+También se puede instalar con **Bun 1.4.2** usando `bun install`. El archivo
+`bun.lock` fija esa instalación y `trustedDependencies` permite los scripts
+nativos necesarios para SWC, Angular y Argon2. CI y Docker siguen usando
+`npm ci` con `package-lock.json`; al actualizar dependencias hay que mantener
+ambos archivos sincronizados.
+
 Levanta la base de datos. Con Docker no hace falta instalar nada más, y las
 credenciales ya coinciden con las del archivo de ejemplo:
 
