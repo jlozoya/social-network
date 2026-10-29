@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { api } from '../../client/shared';
+import { api } from '../../client/api-client';
 export default function DeletionForm() {
   const [busy, setBusy] = useState(false),
     [result, setResult] = useState(''),

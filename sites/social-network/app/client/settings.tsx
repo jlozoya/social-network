@@ -1,18 +1,12 @@
 'use client';
+import { Camera, CheckCircle2, Link2 } from 'lucide-react';
 import { useState } from 'react';
-import { CheckCircle2, Camera, Link2 } from 'lucide-react';
-import {
-  api,
-  Avatar,
-  InlineError,
-  Modal,
-  Spinner,
-  upload,
-  useApp,
-  useResource,
-  useTask,
-  type Profile,
-} from './shared';
+import { api } from './api-client';
+import { useApp } from './app-context';
+import { useResource, useTask } from './hooks';
+import { upload } from './media';
+import { type Profile } from './types';
+import { Avatar, InlineError, Modal, Spinner } from './ui';
 export default function Settings({
   chatgpt,
   deleted,

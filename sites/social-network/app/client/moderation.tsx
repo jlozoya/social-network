@@ -1,5 +1,8 @@
 'use client';
-import { api, Empty, InlineError, useApp, useResource, useTask } from './shared';
+import { api } from './api-client';
+import { useApp } from './app-context';
+import { useResource, useTask } from './hooks';
+import { Empty, InlineError } from './ui';
 type Report = {
   id: string;
   target_type: string;

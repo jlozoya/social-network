@@ -1,8 +1,10 @@
 'use client';
-import { useState } from 'react';
 import { ArrowUpRight } from 'lucide-react';
-import { api, useApp, Spinner } from './shared';
+import { useState } from 'react';
+import { api } from './api-client';
+import { useApp } from './app-context';
 import { siteUrl } from './origin';
+import { Spinner } from './ui';
 const support = 'jlozoya1995+socialnetwork@gmail.com';
 export default function AuthPanel({
   done,

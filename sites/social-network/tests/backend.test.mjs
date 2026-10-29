@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
 import { readFileSync, readdirSync } from 'node:fs';
-import { createHmac, webcrypto } from 'node:crypto';
+import { createHmac } from 'node:crypto';
 import { handleApi } from '../outputs/tests/lib/api.mjs';
 import { digest } from '../outputs/tests/lib/auth.mjs';
 import {
@@ -10,6 +10,46 @@ import {
   enqueueRealtime,
   flushRealtime,
 } from '../outputs/tests/lib/realtime.mjs';
+
+test('todos los dominios conservan autenticación y cabeceras de seguridad tras el despacho', async () => {
+  const f = fixture();
+  const guest = f.client();
+  for (const [path, method] of [
+    ['/api/account', 'PATCH'],
+    ['/api/posts', 'POST'],
+    ['/api/conversations', 'GET'],
+    ['/api/moderation/reports', 'GET'],
+    ['/api/media', 'POST'],
+  ]) {
+    const response = await f.request(guest, path, method);
+    assert.equal(response.status, 401, `${method} ${path}`);
+    assert.equal(response.headers.get('cache-control'), 'no-store');
+    assert.equal(response.headers.get('x-content-type-options'), 'nosniff');
+    assert.equal(response.headers.get('access-control-allow-origin'), 'https://social.test');
+  }
+  for (const path of ['/api/health', '/api/session', '/api/posts', '/api/users']) {
+    assert.equal((await f.request(guest, path)).status, 200, path);
+  }
+  const { client } = await f.signup('routes');
+  assert.equal((await f.request(client, '/api/not-a-route')).status, 404);
+  f.sqlite.close();
+});
+
+test('renovar el token Ably usa su propio límite aunque el presupuesto de mutaciones esté agotado', async () => {
+  const f = fixture();
+  const { client, user } = await f.signup('realtime_limit');
+  f.env.ABLY_API_KEY = 'fixture.key:fixture-secret';
+  f.sqlite
+    .prepare('INSERT INTO rate_limits(key,count,expires_at) VALUES(?,?,?)')
+    .run(await digest(`mutations:${user.id}`), 121, Date.now() + 60_000);
+  assert.equal((await f.request(client, '/api/realtime/token', 'POST')).status, 200);
+  assert.equal(
+    (await f.request(client, '/api/posts', 'POST', { body: 'Contenido', audience: 'public' }))
+      .status,
+    429,
+  );
+  f.sqlite.close();
+});
 
 function fixture() {
   const sqlite = new DatabaseSync(':memory:');

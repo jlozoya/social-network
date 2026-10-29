@@ -81,6 +81,9 @@ Sites utiliza la disponibilidad y cuotas del plan de ChatGPT del propietario.
 
 ## Desarrollo y validación
 
+La separación entre interfaz, transporte HTTP y módulos del servidor está
+documentada en [Arquitectura](docs/architecture.md).
+
 Este proyecto tiene su propio `package-lock.json`; ejecutar las órdenes desde
 esta carpeta. El flujo de Sites usa los helpers del plugin para instalar,
 construir, guardar la fuente y publicar.
@@ -95,6 +98,7 @@ Para trabajo independiente:
 npm ci
 npm run typecheck
 npm run test:backend
+npm run test:client
 npm run build
 npm run dev
 ```

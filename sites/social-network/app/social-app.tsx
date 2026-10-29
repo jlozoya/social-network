@@ -1,161 +1,52 @@
 'use client';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  House,
+  ArrowLeft,
+  ArrowUpRight,
   Compass,
+  House,
+  LogOut,
   MessageCircle,
-  UserRound,
+  RefreshCw,
+  Search,
   Settings2,
   ShieldCheck,
-  Search,
-  ArrowUpRight,
-  LogOut,
-  RefreshCw,
+  UserRound,
   X,
-  ArrowLeft,
 } from 'lucide-react';
-import { Capacitor } from '@capacitor/core';
-import { App } from '@capacitor/app';
-import { Browser } from '@capacitor/browser';
-import {
-  AppContext,
-  api,
-  Avatar,
-  ClientError,
-  Modal,
-  Spinner,
-  useApp,
-  useResource,
-  useTask,
-  type Profile,
-  type ReportTarget,
-  type Post,
-} from './client/shared';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { AppContext } from './client/app-context';
 import AuthPanel from './client/auth-panel';
-import { Feed, Discover, ProfileView, PostCard } from './client/feed';
 import Chat from './client/chat';
-import Settings from './client/settings';
+import { Discover, Feed, ProfileView } from './client/feed';
+import { ContentLoading } from './client/loading';
 import Moderation from './client/moderation';
 import { siteUrl } from './client/origin';
-import { ContentLoading, PeopleLoading } from './client/loading';
+import Settings from './client/settings';
+import { type ReportTarget } from './client/types';
+import { Avatar, Modal } from './client/ui';
 
-type View = 'feed' | 'discover' | 'messages' | 'profile' | 'settings' | 'moderation';
-const names: Record<View, string> = {
-  feed: 'Publicaciones',
-  discover: 'Descubrir',
-  messages: 'Mensajes',
-  profile: 'Perfil',
-  settings: 'Ajustes',
-  moderation: 'Moderación',
-};
-function b64(bytes: Uint8Array) {
-  return btoa(String.fromCharCode(...bytes))
-    .replaceAll('+', '-')
-    .replaceAll('/', '_')
-    .replace(/=+$/, '');
-}
+import { ReportForm, RightRail, SharedPost } from './client/shell-parts';
+import { names, useNavigation, type View } from './client/use-navigation';
+import { useRealtime } from './client/use-realtime';
+import { useSession } from './client/use-session';
+
 export default function SocialApp() {
-  const [user, setUser] = useState<Profile | null>(null),
-    [loading, setLoading] = useState(true),
-    [view, setView] = useState<View>('feed'),
-    [profileId, setProfileId] = useState(''),
-    [conversation, setConversation] = useState<string | null>(null),
-    [query, setQuery] = useState(''),
+  const { view, profileId, conversation, setConversation, sharedPost, setSharedPost, go } =
+    useNavigation();
+  const [query, setQuery] = useState(''),
     [search, setSearch] = useState(''),
     [following, setFollowing] = useState(false),
     [sync, setSync] = useState(0),
-    [auth, setAuth] = useState(false),
     [report, setReport] = useState<ReportTarget | null>(null),
-    [sharedPost, setSharedPost] = useState<string | null>(null),
-    [toast, setToast] = useState(''),
-    [live, setLive] = useState('connecting');
-  const lastCode = useRef('');
+    [toast, setToast] = useState('');
   const notify = useCallback((message: string) => setToast(message), []);
   const refresh = useCallback(() => setSync((v) => v + 1), []);
-  const refreshUser = useCallback(async () => {
-    const result = await api<{ user: Profile | null }>('/api/session');
-    setUser(result.user);
-  }, []);
-  const go = useCallback((page: View, person = '', chat: string | null = null) => {
-    setView(page);
-    setProfileId(person);
-    setConversation(chat);
-    const url = new URL(location.href);
-    url.search = '';
-    if (page !== 'feed') url.searchParams.set('view', page);
-    if (person) url.searchParams.set('user', person);
-    if (chat) url.searchParams.set('chat', chat);
-    history.pushState({}, '', url);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, []);
-  const finishAuth = useCallback(
-    async (code: string, state: string) => {
-      if (lastCode.current === code) return;
-      lastCode.current = code;
-      try {
-        const raw = sessionStorage.getItem('sn_auth');
-        if (!raw) throw new Error('Vuelve a iniciar el acceso desde esta app.');
-        const pending = JSON.parse(raw);
-        if (pending.state !== state) throw new Error('El acceso no corresponde a esta sesión.');
-        await api('/api/auth/exchange', 'POST', { code, state, verifier: pending.verifier });
-        sessionStorage.removeItem('sn_auth');
-        if (Capacitor.isNativePlatform()) await Browser.close().catch(() => {});
-        await refreshUser();
-        setAuth(false);
-        go('feed');
-        refresh();
-        notify('Sesión iniciada.');
-      } catch (error) {
-        notify(error instanceof Error ? error.message : 'No se pudo completar el acceso.');
-        history.replaceState({}, '', '/');
-        await refreshUser();
-      }
-    },
-    [go, notify, refresh, refreshUser],
-  );
-  useEffect(() => {
-    const read = () => {
-      const params = new URLSearchParams(location.search);
-      const requested = params.get('view') as View;
-      if (requested && names[requested]) setView(requested);
-      else setView('feed');
-      setProfileId(params.get('user') ?? '');
-      setConversation(params.get('chat'));
-      setSharedPost(params.get('post'));
-    };
-    read();
-    window.addEventListener('popstate', read);
-    const params = new URLSearchParams(location.search);
-    const code = params.get('auth_code'),
-      state = params.get('state');
-    void (code && state ? finishAuth(code, state) : refreshUser())
-      .catch((error) => notify(error.message))
-      .finally(() => setLoading(false));
-    let disposed = false,
-      remove: (() => void) | undefined;
-    if (Capacitor.isNativePlatform()) {
-      const receive = (value: string) => {
-        const url = new URL(value);
-        if (url.protocol === 'socialnetwork:' && url.host === 'auth') {
-          const code = url.searchParams.get('code'),
-            state = url.searchParams.get('state');
-          if (code && state) void finishAuth(code, state);
-        }
-      };
-      void App.addListener('appUrlOpen', (event) => receive(event.url)).then((listener) => {
-        if (disposed) void listener.remove();
-        else remove = () => void listener.remove();
-      });
-      void App.getLaunchUrl().then((value) => {
-        if (value) receive(value.url);
-      });
-    }
-    return () => {
-      disposed = true;
-      remove?.();
-      window.removeEventListener('popstate', read);
-    };
-  }, [finishAuth, notify, refreshUser]);
+  const { user, setUser, loading, auth, setAuth, refreshUser, chatgpt, logout } = useSession({
+    go,
+    refresh,
+    notify,
+  });
+  const live = useRealtime(user, refresh, refreshUser);
   useEffect(() => {
     if (!toast) return;
     const timer = setTimeout(() => setToast(''), 6500);
@@ -164,114 +55,7 @@ export default function SocialApp() {
   useEffect(() => {
     document.title = `${names[view]} · Social Network`;
   }, [view]);
-  useEffect(() => {
-    if (!user) {
-      setLive('signed-out');
-      return;
-    }
-    let disposed = false,
-      client: { close: () => void } | undefined,
-      timer: ReturnType<typeof setTimeout> | undefined;
-    const changed = () => {
-      clearTimeout(timer);
-      timer = setTimeout(() => {
-        refresh();
-        void refreshUser().catch(() => {});
-      }, 250);
-    };
-    void api<{ configured: boolean }>('/api/realtime/status')
-      .then(async (status) => {
-        if (disposed) return;
-        if (!status.configured) {
-          setLive('manual');
-          return;
-        }
-        const Ably = await import('ably');
-        if (disposed) return;
-        const realtime = new Ably.Realtime({
-          authCallback: (_params, callback) => {
-            void api<import('ably').TokenRequest>('/api/realtime/token', 'POST')
-              .then((token) => callback(null, token))
-              .catch((error) => callback(error.message, null));
-          },
-          clientId: user.id,
-        });
-        client = realtime;
-        realtime.connection.on('connected', () => {
-          if (!disposed) {
-            setLive('connected');
-            changed();
-          }
-        });
-        realtime.connection.on('disconnected', () => !disposed && setLive('reconnecting'));
-        realtime.connection.on('suspended', () => !disposed && setLive('manual'));
-        realtime.connection.on('failed', () => {
-          if (!disposed) {
-            setLive('manual');
-            void refreshUser().catch(() => {});
-          }
-        });
-        for (const channelName of ['sn:feed', `sn:user:${user.id}`]) {
-          const channel = realtime.channels.get(channelName);
-          void channel.subscribe('changed', changed).catch(() => !disposed && setLive('manual'));
-          channel.on('attached', changed);
-        }
-      })
-      .catch(() => !disposed && setLive('manual'));
-    const visible = () => {
-      if (document.visibilityState === 'visible') changed();
-    };
-    document.addEventListener('visibilitychange', visible);
-    return () => {
-      disposed = true;
-      clearTimeout(timer);
-      client?.close();
-      document.removeEventListener('visibilitychange', visible);
-    };
-  }, [user?.id, refresh, refreshUser]);
-  const chatgpt = useCallback(async (link: boolean, accepted: boolean) => {
-    const verifier = b64(crypto.getRandomValues(new Uint8Array(32))),
-      state = b64(crypto.getRandomValues(new Uint8Array(32))),
-      challenge = b64(
-        new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier))),
-      );
-    const native = Capacitor.isNativePlatform();
-    const payload = {
-      challenge,
-      state,
-      native,
-      link,
-      termsAccepted: accepted,
-      ageConfirmed: accepted,
-    };
-    sessionStorage.setItem('sn_auth', JSON.stringify({ verifier, state }));
-    if (native) {
-      const result = await api<{ url: string }>('/api/auth/start', 'POST', payload);
-      await Browser.open({ url: result.url });
-    } else {
-      // El acceso de Sites requiere navegar en la página superior. Un formulario
-      // nativo evita esperar un fetch antes de salir del modal y también funciona
-      // cuando la aplicación está dentro de un iframe.
-      const form = document.createElement('form');
-      form.method = 'POST';
-      form.action = siteUrl('/api/auth/start');
-      form.target = '_top';
-      form.hidden = true;
-      for (const [name, value] of Object.entries(payload)) {
-        const input = document.createElement('input');
-        input.type = 'hidden';
-        input.name = name;
-        input.value = String(value);
-        form.appendChild(input);
-      }
-      document.body.appendChild(form);
-      try {
-        form.submit();
-      } finally {
-        form.remove();
-      }
-    }
-  }, []);
+
   const context = useMemo(
     () => ({
       user,
@@ -284,7 +68,7 @@ export default function SocialApp() {
       openChat: (id: string) => go('messages', '', id),
       openReport: (target: ReportTarget) => setReport(target),
     }),
-    [user, sync, notify, refreshUser, refresh, go],
+    [user, sync, notify, refreshUser, refresh, go, setAuth],
   );
   const nav = (page: View) => {
     if (loading) return;
@@ -296,16 +80,6 @@ export default function SocialApp() {
       if (user) go(page, user.id);
       else setAuth(true);
     } else go(page);
-  };
-  const logout = async () => {
-    try {
-      await api('/api/auth/logout', 'POST', {});
-      setUser(null);
-      go('feed');
-      refresh();
-    } catch (error) {
-      notify((error as Error).message);
-    }
   };
   const menu = [
     ['feed', House, 'Inicio'],
@@ -545,105 +319,5 @@ export default function SocialApp() {
         </Modal>
       )}
     </AppContext.Provider>
-  );
-}
-function RightRail({ loading }: { loading: boolean }) {
-  const { user, sync, openProfile, openAuth } = useApp(),
-    people = useResource<{ data: Profile[] }>('/api/users', sync);
-  return (
-    <aside className="right-rail">
-      <section className="rail-card">
-        <div className="section-title">
-          <h3>Personas</h3>
-          <Compass size={17} />
-        </div>
-        {(loading || (people.loading && !people.data)) && <PeopleLoading />}
-        {!loading &&
-          people.data?.data.slice(0, 4).map((person) => (
-            <button
-              className="suggested-person"
-              key={person.id}
-              onClick={() => openProfile(person.id)}
-            >
-              <Avatar person={person} size="small" />
-              <span>
-                <strong>{person.displayName}</strong>
-                <small>@{person.username}</small>
-              </span>
-              <ArrowUpRight size={16} />
-            </button>
-          ))}
-        {!loading && people.data && !people.data.data.length && (
-          <p className="small muted">No hay perfiles disponibles.</p>
-        )}
-        {!loading && !user && (
-          <button className="text-button" onClick={openAuth}>
-            Iniciar sesión <ArrowUpRight size={14} />
-          </button>
-        )}
-      </section>
-      <a className="community-link" href={siteUrl('/community')}>
-        <ShieldCheck size={19} />
-        <span>
-          Normas de comunidad
-          <strong>
-            Leer normas <ArrowUpRight size={13} />
-          </strong>
-        </span>
-      </a>
-      <div className="footer-links">
-        <a href={siteUrl('/delete-account')}>Eliminar cuenta</a>
-        <a href={siteUrl('/child-safety')}>Seguridad infantil</a>
-        <a href={siteUrl('/support')}>Contacto</a>
-      </div>
-    </aside>
-  );
-}
-function ReportForm({ target, close }: { target: ReportTarget; close: () => void }) {
-  const { notify } = useApp(),
-    { busy, task } = useTask();
-  return (
-    <>
-      <p>
-        Cuéntanos qué sucede. El equipo de moderación revisará tu denuncia y el contenido señalado.
-      </p>
-      <form
-        className="form"
-        onSubmit={(e) => {
-          e.preventDefault();
-          const values = Object.fromEntries(new FormData(e.currentTarget));
-          void task(async () => {
-            await api('/api/reports', 'POST', { ...target, ...values });
-            notify('Denuncia enviada.');
-            close();
-          });
-        }}
-      >
-        <label>
-          Motivo
-          <textarea
-            name="reason"
-            required
-            minLength={5}
-            maxLength={1000}
-            rows={5}
-            placeholder="Acoso, suplantación, contenido inapropiado…"
-          />
-        </label>
-        <button className="button primary" disabled={busy}>
-          {busy ? <Spinner /> : 'Enviar denuncia'}
-        </button>
-      </form>
-    </>
-  );
-}
-function SharedPost({ id }: { id: string }) {
-  const resource = useResource<Post>(`/api/posts/${encodeURIComponent(id)}`);
-  return resource.error ? (
-    <p role="alert">{resource.error}</p>
-  ) : resource.data ? (
-    <PostCard post={resource.data} />
-  ) : (
-    <Spinner />
   );
 }

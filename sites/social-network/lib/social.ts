@@ -1,18 +1,17 @@
+import { base64url } from './auth';
 import {
   ApiError,
   all,
-  first,
-  run,
-  now,
-  newId,
   blocked,
-  visibleUser,
+  first,
+  id,
+  newId,
+  now,
   publicUser,
   text,
-  id,
+  visibleUser,
   type User,
 } from './data';
-import { base64url } from './auth';
 
 type PostRow = {
   id: string;
@@ -196,19 +195,17 @@ export async function commentsFor(
     v,
   );
   return {
-    data: rows
-      .slice(0, 30)
-      .map((r) => ({
-        id: r.id,
-        body: r.body,
-        createdAt: new Date(r.created_at).toISOString(),
-        author: {
-          id: r.author_id,
-          username: r.username,
-          displayName: r.display_name,
-          avatarUrl: r.avatar_key ? `/media/${r.avatar_key}` : null,
-        },
-      })),
+    data: rows.slice(0, 30).map((r) => ({
+      id: r.id,
+      body: r.body,
+      createdAt: new Date(r.created_at).toISOString(),
+      author: {
+        id: r.author_id,
+        username: r.username,
+        displayName: r.display_name,
+        avatarUrl: r.avatar_key ? `/media/${r.avatar_key}` : null,
+      },
+    })),
     nextCursor: rows.length > 30 ? cursorFor(rows[29]) : null,
   };
 }

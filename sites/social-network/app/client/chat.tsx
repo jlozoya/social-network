@@ -1,20 +1,12 @@
 'use client';
+import { ArrowLeft, Flag, MessageCircle, Send, Trash2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { MessageCircle, Send, ArrowLeft, Flag, Trash2 } from 'lucide-react';
-import {
-  api,
-  Avatar,
-  Empty,
-  InlineError,
-  Spinner,
-  time,
-  useApp,
-  useResource,
-  useTask,
-  type Conversation,
-  type Page,
-  type Message,
-} from './shared';
+import { api } from './api-client';
+import { useApp } from './app-context';
+import { time } from './format';
+import { usePagination, useResource, useTask } from './hooks';
+import { type Conversation, type Message, type Page } from './types';
+import { Avatar, Empty, InlineError, Spinner } from './ui';
 
 export default function Chat({
   conversationId,
@@ -102,14 +94,11 @@ function Messages({ conversationId }: { conversationId: string }) {
     { busy, task } = useTask(),
     resource = useResource<Page<Message>>(`/api/conversations/${conversationId}/messages`, sync);
   const [body, setBody] = useState(''),
-    [extra, setExtra] = useState<Message[]>([]),
-    [cursor, setCursor] = useState<string | null>(null),
     [deleting, setDeleting] = useState<string | null>(null),
     list = useRef<HTMLDivElement>(null),
     pending = useRef<{ id: string; body: string } | null>(null);
+  const { extra, setExtra, cursor, setCursor } = usePagination(resource.data);
   useEffect(() => {
-    setExtra([]);
-    setCursor(resource.data?.nextCursor ?? null);
     const latest = resource.data?.data[0];
     if (latest)
       void api(`/api/conversations/${conversationId}/read`, 'POST', { messageId: latest.id }).catch(

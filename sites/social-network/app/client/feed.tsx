@@ -1,40 +1,30 @@
 'use client';
-import { useEffect, useState } from 'react';
 import {
-  ImagePlus,
-  Send,
-  MessageCircle,
-  Heart,
-  Share2,
+  ArrowUpRight,
   Flag,
-  Trash2,
-  Pencil,
   Globe,
+  Heart,
+  ImagePlus,
   Lock,
+  MessageCircle,
+  Pencil,
+  Send,
+  Share2,
+  Trash2,
   Users,
   X,
-  ArrowUpRight,
 } from 'lucide-react';
-import {
-  api,
-  Avatar,
-  Empty,
-  InlineError,
-  Modal,
-  Spinner,
-  time,
-  upload,
-  useApp,
-  useResource,
-  useTask,
-  type Post,
-  type Page,
-  type Comment,
-  type Profile,
-} from './shared';
+import { useEffect, useRef, useState } from 'react';
+import { api } from './api-client';
+import { useApp } from './app-context';
+import { time } from './format';
+import { usePagination, useResource, useTask } from './hooks';
+import { upload } from './media';
+import { type Comment, type Page, type Post, type Profile } from './types';
+import { Avatar, Empty, InlineError, Modal, Spinner } from './ui';
 
-import { siteUrl } from './origin';
 import { ContentLoading } from './loading';
+import { siteUrl } from './origin';
 
 const reactions = [
   ['like', '👍', 'Me gusta'],
@@ -46,15 +36,15 @@ const reactions = [
   ['angry', '😠', 'Me enoja'],
 ];
 function Preview({ file, remove }: { file: File; remove: () => void }) {
-  const [url, setUrl] = useState('');
+  const image = useRef<HTMLImageElement>(null);
   useEffect(() => {
     const value = URL.createObjectURL(file);
-    setUrl(value);
+    if (image.current) image.current.src = value;
     return () => URL.revokeObjectURL(value);
   }, [file]);
   return (
     <span className="photo-preview">
-      <img src={url} alt={file.name} />
+      <img ref={image} alt={file.name} />
       <button className="icon-button" aria-label={`Quitar ${file.name}`} onClick={remove}>
         <X size={14} />
       </button>
@@ -165,13 +155,8 @@ function Comments({ post }: { post: Post }) {
   const { user, sync, openAuth, openProfile, openReport, refresh } = useApp(),
     { busy, task } = useTask();
   const resource = useResource<Page<Comment>>(`/api/posts/${post.id}/comments`, sync);
-  const [extra, setExtra] = useState<Comment[]>([]),
-    [cursor, setCursor] = useState<string | null>(null),
-    [body, setBody] = useState('');
-  useEffect(() => {
-    setExtra([]);
-    setCursor(resource.data?.nextCursor ?? null);
-  }, [resource.data]);
+  const { extra, setExtra, cursor, setCursor } = usePagination(resource.data);
+  const [body, setBody] = useState('');
   return (
     <section className="comments" aria-label="Comentarios">
       {resource.error && <InlineError message={resource.error} retry={resource.reload} />}
@@ -481,12 +466,7 @@ export function Feed({
   const { sync } = useApp(),
     { busy, task } = useTask(),
     resource = useResource<Page<Post>>(endpoint, sync);
-  const [extra, setExtra] = useState<Post[]>([]),
-    [cursor, setCursor] = useState<string | null>(null);
-  useEffect(() => {
-    setExtra([]);
-    setCursor(resource.data?.nextCursor ?? null);
-  }, [resource.data]);
+  const { extra, setExtra, cursor, setCursor } = usePagination(resource.data);
   const posts = [...(resource.data?.data ?? []), ...extra];
   return (
     <>
@@ -522,7 +502,7 @@ export function Feed({
   );
 }
 export function ProfileView({ userId }: { userId: string }) {
-  const { user, sync, openAuth, openChat, openReport, refresh, openProfile } = useApp(),
+  const { user, sync, openAuth, openChat, openReport, refresh } = useApp(),
     resource = useResource<Profile>(`/api/users/${userId}`, sync),
     { busy, task } = useTask(),
     [blocking, setBlocking] = useState(false);
