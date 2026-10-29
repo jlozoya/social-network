@@ -90,9 +90,10 @@ jobs:
 
   e2e:
     name: Pruebas de extremo a extremo
-    # MongoDB 8 no arranca con los kernels 6.19+ de Ubuntu 26.04.
+    # Ubuntu 24.04 también usa un kernel incompatible con MongoDB 8.
+    # Ubuntu 22.04 mantiene el kernel 6.8; conservar MongoDB 8 en las pruebas.
     # https://jira.mongodb.org/browse/SERVER-121912
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-22.04
     services:
       mongo:
         image: mongo:8

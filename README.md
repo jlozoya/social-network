@@ -50,6 +50,9 @@ nativos necesarios para SWC, Angular y Argon2. CI y Docker siguen usando
 `npm ci` con `package-lock.json`; al actualizar dependencias hay que mantener
 ambos archivos sincronizados.
 
+Si Bun muestra `Unknown lockfile version`, comprueba `bun --version` y actualízalo
+con `bun upgrade`: Bun 1.3 no puede leer el formato de los lockfiles actuales.
+
 Levanta la base de datos. Con Docker no hace falta instalar nada más, y las
 credenciales ya coinciden con las del archivo de ejemplo:
 
@@ -154,6 +157,14 @@ publiquen una corrección; no se han silenciado los avisos.
   necesitan Docker.
 
 Si el lint se queja del formato, `npm run format` lo arregla.
+
+### Pruebas en VS Code
+
+La configuración compartida de `.vscode/settings.json` limita la extensión Vitest
+a `vitest.config.*`. Así descubre las pruebas unitarias de la API sin cargar los
+plugins de Cloudflare del sitio ni arrancar las pruebas de extremo a extremo.
+Las pruebas de Angular se ejecutan con `npm run test:mobile`; las de extremo a
+extremo, con `npm run test:e2e` y una base Mongo de prueba.
 
 ## Migrar los datos de la versión anterior
 
