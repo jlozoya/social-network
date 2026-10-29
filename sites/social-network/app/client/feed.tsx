@@ -34,6 +34,7 @@ import {
 } from './shared';
 
 import { siteUrl } from './origin';
+import { ContentLoading } from './loading';
 
 const reactions = [
   ['like', '👍', 'Me gusta'],
@@ -69,15 +70,15 @@ export function Composer() {
   if (!user)
     return (
       <div className="join-card">
-        <span className="eyebrow">TU ESPACIO, TU GENTE</span>
+        <span className="eyebrow">SOCIAL NETWORK</span>
         <h1>
-          Lo que importa,
+          Publica y
           <br />
-          <em>más cerca.</em>
+          <em>conversa.</em>
         </h1>
-        <p>Comparte una idea, encuentra a tu gente y empieza una buena conversación.</p>
+        <p>Comparte publicaciones y fotos, sigue perfiles y envía mensajes.</p>
         <button className="button primary" onClick={openAuth}>
-          Encuentra tu comunidad <ArrowUpRight size={18} />
+          Iniciar sesión <ArrowUpRight size={18} />
         </button>
         <span className="join-orbit" aria-hidden="true">
           ✳
@@ -96,7 +97,7 @@ export function Composer() {
           setBody('');
           setFiles([]);
           refresh();
-          notify('Tu publicación ya está en la comunidad.');
+          notify('Publicación creada.');
         });
       }}
     >
@@ -248,7 +249,7 @@ function Comments({ post }: { post: Post }) {
             required
             maxLength={1000}
             aria-label="Tu comentario"
-            placeholder="Súmate a la conversación…"
+            placeholder="Escribe un comentario…"
           />
           <button
             className="icon-button"
@@ -491,17 +492,10 @@ export function Feed({
     <>
       {showComposer && <Composer />}
       {resource.error && <InlineError message={resource.error} retry={resource.reload} />}
-      {resource.loading && !resource.data && (
-        <div className="loading-box">
-          <Spinner /> Cargando publicaciones…
-        </div>
-      )}
+      {resource.loading && !resource.data && <ContentLoading />}
       {!resource.loading && !resource.error && !posts.length && (
         <div className="card">
-          <Empty title="Todo empieza con una idea">
-            Todavía no hay publicaciones aquí. Comparte algo o descubre a otras personas de la
-            comunidad.
-          </Empty>
+          <Empty title="No hay publicaciones">Las publicaciones disponibles aparecerán aquí.</Empty>
         </div>
       )}
       {posts.map((post) => (
@@ -670,9 +664,9 @@ export function Discover({ query }: { query: string }) {
   return (
     <>
       <div className="page-heading">
-        <span className="eyebrow">ENCUENTRA TU GENTE</span>
-        <h1>{query ? 'Resultados de búsqueda' : 'Descubre la comunidad'}</h1>
-        <p>Una conversación puede empezar con un simple hola.</p>
+        <span className="eyebrow">PERSONAS</span>
+        <h1>{query ? 'Resultados de búsqueda' : 'Buscar perfiles'}</h1>
+        <p>Busca por nombre o usuario.</p>
       </div>
       {resource.error && <InlineError message={resource.error} retry={resource.reload} />}
       <div className="people-grid">
@@ -685,7 +679,7 @@ export function Discover({ query }: { query: string }) {
             <Avatar person={person} />
             <strong>{person.displayName}</strong>
             <span className="handle">@{person.username}</span>
-            <p>{person.bio || 'Parte de la comunidad de Social Network.'}</p>
+            {person.bio && <p>{person.bio}</p>}
             <span className="text-button">
               Ver perfil <ArrowUpRight size={14} />
             </span>
@@ -695,7 +689,7 @@ export function Discover({ query }: { query: string }) {
       {resource.loading && !resource.data && <Spinner />}
       {resource.data && !resource.data.data.length && (
         <div className="card">
-          <Empty title="Aquí todavía hay espacio">
+          <Empty title="Sin resultados">
             No encontramos perfiles con esa búsqueda. Prueba otro nombre.
           </Empty>
         </div>

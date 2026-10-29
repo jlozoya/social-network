@@ -37,10 +37,11 @@ import Chat from './client/chat';
 import Settings from './client/settings';
 import Moderation from './client/moderation';
 import { siteUrl } from './client/origin';
+import { ContentLoading, PeopleLoading } from './client/loading';
 
 type View = 'feed' | 'discover' | 'messages' | 'profile' | 'settings' | 'moderation';
 const names: Record<View, string> = {
-  feed: 'Tu comunidad',
+  feed: 'Publicaciones',
   discover: 'Descubrir',
   messages: 'Mensajes',
   profile: 'Perfil',
@@ -103,10 +104,11 @@ export default function SocialApp() {
         setAuth(false);
         go('feed');
         refresh();
-        notify('Qué bueno tenerte aquí.');
+        notify('Sesión iniciada.');
       } catch (error) {
         notify(error instanceof Error ? error.message : 'No se pudo completar el acceso.');
         history.replaceState({}, '', '/');
+        await refreshUser();
       }
     },
     [go, notify, refresh, refreshUser],
@@ -126,10 +128,9 @@ export default function SocialApp() {
     const params = new URLSearchParams(location.search);
     const code = params.get('auth_code'),
       state = params.get('state');
-    void refreshUser()
+    void (code && state ? finishAuth(code, state) : refreshUser())
       .catch((error) => notify(error.message))
       .finally(() => setLoading(false));
-    if (code && state) void finishAuth(code, state);
     let disposed = false,
       remove: (() => void) | undefined;
     if (Capacitor.isNativePlatform()) {
@@ -235,17 +236,41 @@ export default function SocialApp() {
         new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier))),
       );
     const native = Capacitor.isNativePlatform();
-    const result = await api<{ url: string }>('/api/auth/start', 'POST', {
+    const payload = {
       challenge,
       state,
       native,
       link,
       termsAccepted: accepted,
       ageConfirmed: accepted,
-    });
+    };
     sessionStorage.setItem('sn_auth', JSON.stringify({ verifier, state }));
-    if (native) await Browser.open({ url: result.url });
-    else window.location.assign(result.url);
+    if (native) {
+      const result = await api<{ url: string }>('/api/auth/start', 'POST', payload);
+      await Browser.open({ url: result.url });
+    } else {
+      // El acceso de Sites requiere navegar en la página superior. Un formulario
+      // nativo evita esperar un fetch antes de salir del modal y también funciona
+      // cuando la aplicación está dentro de un iframe.
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = siteUrl('/api/auth/start');
+      form.target = '_top';
+      form.hidden = true;
+      for (const [name, value] of Object.entries(payload)) {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = name;
+        input.value = String(value);
+        form.appendChild(input);
+      }
+      document.body.appendChild(form);
+      try {
+        form.submit();
+      } finally {
+        form.remove();
+      }
+    }
   }, []);
   const context = useMemo(
     () => ({
@@ -262,6 +287,7 @@ export default function SocialApp() {
     [user, sync, notify, refreshUser, refresh, go],
   );
   const nav = (page: View) => {
+    if (loading) return;
     if (['messages', 'settings', 'moderation'].includes(page) && !user) {
       setAuth(true);
       return;
@@ -297,7 +323,7 @@ export default function SocialApp() {
               s<span>.</span>
             </span>
             <span>
-              Social Network<span className="brand-note">CONEXIONES QUE IMPORTAN</span>
+              Social Network<span className="brand-note">PUBLICACIONES Y MENSAJES</span>
             </span>
           </button>
           <form
@@ -312,23 +338,23 @@ export default function SocialApp() {
             <Search size={18} />
             <input
               aria-label="Buscar personas"
-              placeholder="Encuentra a tu gente…"
+              placeholder="Buscar personas…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
             <kbd>↵</kbd>
           </form>
           <div className="header-actions">
-            {user ? (
+            {loading ? (
+              <span className="account-placeholder skeleton-shape" aria-hidden="true" />
+            ) : user ? (
               <>
-                <span className={`live-status ${live === 'connected' ? 'on' : ''}`}>
-                  <i />
-                  {live === 'connected'
-                    ? 'En vivo'
-                    : live === 'connecting' || live === 'reconnecting'
-                      ? 'Conectando'
-                      : 'Actualización manual'}
-                </span>
+                {(live === 'reconnecting' || live === 'manual') && (
+                  <span className="live-status" role="status">
+                    <i aria-hidden="true" />
+                    {live === 'reconnecting' ? 'Reconectando…' : 'Actualiza para ver cambios'}
+                  </span>
+                )}
                 <button
                   className="account-avatar"
                   aria-label="Abrir mi perfil"
@@ -347,7 +373,7 @@ export default function SocialApp() {
         <div className={`workspace ${view === 'messages' ? 'wide-view' : ''}`}>
           <aside className="sidebar">
             <div>
-              <span className="nav-kicker">TU RINCÓN EN INTERNET</span>
+              <span className="nav-kicker">NAVEGACIÓN</span>
               <nav aria-label="Navegación principal">
                 {menu.map(([page, Icon, label]) => (
                   <button
@@ -372,14 +398,6 @@ export default function SocialApp() {
               </nav>
             </div>
             <div className="sidebar-bottom">
-              <div className="community-note">
-                <span>✳</span>
-                <p>
-                  Un lugar para
-                  <br />
-                  <strong>ser tú.</strong>
-                </p>
-              </div>
               {user && (
                 <button className="sidebar-user" onClick={() => go('profile', user.id)}>
                   <Avatar person={user} size="small" />
@@ -406,17 +424,15 @@ export default function SocialApp() {
           </aside>
           <main className="main-content" id="main-content">
             {loading ? (
-              <div className="loading-box">
-                <Spinner /> Preparando tu espacio…
-              </div>
+              <ContentLoading title={names[view]} />
             ) : (
               <>
                 {view === 'feed' && (
                   <>
                     <div className="section-title">
                       <div>
-                        <span className="eyebrow">LO QUE ESTÁ PASANDO</span>
-                        <h2>Tu comunidad</h2>
+                        <span className="eyebrow">INICIO</span>
+                        <h2>Publicaciones</h2>
                       </div>
                       <button
                         className="icon-button"
@@ -453,7 +469,7 @@ export default function SocialApp() {
                   <>
                     <button className="text-button back-button" onClick={() => go('feed')}>
                       <ArrowLeft size={16} />
-                      Volver a la comunidad
+                      Volver al inicio
                     </button>
                     <ProfileView key={profileId} userId={profileId} />
                   </>
@@ -477,7 +493,7 @@ export default function SocialApp() {
               </>
             )}
           </main>
-          {view !== 'messages' && <RightRail />}
+          {view !== 'messages' && <RightRail loading={loading} />}
         </div>
         <nav className="mobile-nav" aria-label="Navegación móvil">
           {menu.map(([page, Icon, label]) => (
@@ -502,7 +518,7 @@ export default function SocialApp() {
         </div>
       )}
       {auth && (
-        <Modal title="Qué bueno encontrarte" close={() => setAuth(false)}>
+        <Modal title="Accede a Social Network" close={() => setAuth(false)}>
           <AuthPanel
             done={() => {
               setAuth(false);
@@ -513,13 +529,13 @@ export default function SocialApp() {
         </Modal>
       )}
       {report && (
-        <Modal title="Ayúdanos a cuidar la comunidad" close={() => setReport(null)}>
+        <Modal title="Denunciar contenido" close={() => setReport(null)}>
           <ReportForm target={report} close={() => setReport(null)} />
         </Modal>
       )}
       {sharedPost && (
         <Modal
-          title="En la comunidad"
+          title="Publicación"
           close={() => {
             setSharedPost(null);
             history.replaceState({}, '', '/');
@@ -531,59 +547,47 @@ export default function SocialApp() {
     </AppContext.Provider>
   );
 }
-function RightRail() {
+function RightRail({ loading }: { loading: boolean }) {
   const { user, sync, openProfile, openAuth } = useApp(),
     people = useResource<{ data: Profile[] }>('/api/users', sync);
   return (
     <aside className="right-rail">
-      <div className="rail-card intro-note">
-        <span className="eyebrow">LAS COSAS BUENAS SE COMPARTEN</span>
-        <h2>
-          Menos ruido.
-          <br />
-          Más conexión.
-        </h2>
-        <p>Este espacio lo hacemos entre todos. Publica con intención, escucha con curiosidad.</p>
-        <span className="note-flower" aria-hidden="true">
-          ✳
-        </span>
-      </div>
       <section className="rail-card">
         <div className="section-title">
-          <h3>Personas por descubrir</h3>
+          <h3>Personas</h3>
           <Compass size={17} />
         </div>
-        {people.data?.data.slice(0, 4).map((person) => (
-          <button
-            className="suggested-person"
-            key={person.id}
-            onClick={() => openProfile(person.id)}
-          >
-            <Avatar person={person} size="small" />
-            <span>
-              <strong>{person.displayName}</strong>
-              <small>@{person.username}</small>
-            </span>
-            <ArrowUpRight size={16} />
-          </button>
-        ))}
-        {people.data && !people.data.data.length && (
-          <p className="small muted">
-            La comunidad está empezando. Invita a alguien con quien te guste conversar.
-          </p>
+        {(loading || (people.loading && !people.data)) && <PeopleLoading />}
+        {!loading &&
+          people.data?.data.slice(0, 4).map((person) => (
+            <button
+              className="suggested-person"
+              key={person.id}
+              onClick={() => openProfile(person.id)}
+            >
+              <Avatar person={person} size="small" />
+              <span>
+                <strong>{person.displayName}</strong>
+                <small>@{person.username}</small>
+              </span>
+              <ArrowUpRight size={16} />
+            </button>
+          ))}
+        {!loading && people.data && !people.data.data.length && (
+          <p className="small muted">No hay perfiles disponibles.</p>
         )}
-        {!user && (
+        {!loading && !user && (
           <button className="text-button" onClick={openAuth}>
-            Sé parte de la comunidad <ArrowUpRight size={14} />
+            Iniciar sesión <ArrowUpRight size={14} />
           </button>
         )}
       </section>
       <a className="community-link" href={siteUrl('/community')}>
         <ShieldCheck size={19} />
         <span>
-          Un espacio que cuidamos juntos
+          Normas de comunidad
           <strong>
-            Conoce nuestras normas <ArrowUpRight size={13} />
+            Leer normas <ArrowUpRight size={13} />
           </strong>
         </span>
       </a>
@@ -610,7 +614,7 @@ function ReportForm({ target, close }: { target: ReportTarget; close: () => void
           const values = Object.fromEntries(new FormData(e.currentTarget));
           void task(async () => {
             await api('/api/reports', 'POST', { ...target, ...values });
-            notify('Recibimos tu denuncia. Gracias por cuidar este espacio.');
+            notify('Denuncia enviada.');
             close();
           });
         }}

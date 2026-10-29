@@ -157,9 +157,31 @@ async function route(request: Request, env: Bindings, identity: Identity): Promi
     return json({ configured: !!env.ABLY_API_KEY });
   if (method === 'GET' && path === '/api/auth/chatgpt')
     return completeChatGPT(db, env, request, identity);
+  if (method === 'POST' && path === '/api/auth/chatgpt') {
+    if (request.headers.get('origin') !== url.origin)
+      throw new ApiError(403, 'Vuelve a iniciar el acceso desde Social Network.');
+    if (!request.headers.get('content-type')?.startsWith('application/x-www-form-urlencoded'))
+      throw new ApiError(415, 'Envía el formulario de creación de cuenta.');
+    const form = new URLSearchParams(new TextDecoder().decode(await boundedBody(request, 4096)));
+    return completeChatGPT(db, env, request, identity, form.get('consent') === 'accepted');
+  }
   if (method === 'POST' && path === '/api/auth/start') {
     await limit(db, `auth-start:${ip}`, 20, 15 * 60_000);
-    return json(await startChatGPT(db, request, await bodyOf(request), current));
+    const navigation = request.headers
+      .get('content-type')
+      ?.startsWith('application/x-www-form-urlencoded');
+    let body: Record<string, unknown>;
+    if (navigation) {
+      body = Object.fromEntries(
+        new URLSearchParams(new TextDecoder().decode(await boundedBody(request, 4096))),
+      );
+      for (const key of ['link', 'termsAccepted', 'ageConfirmed']) body[key] = body[key] === 'true';
+      body.native = false;
+    } else {
+      body = await bodyOf(request);
+    }
+    const started = await startChatGPT(db, request, body, current);
+    return navigation ? Response.redirect(started.url, 303) : json(started);
   }
   if (method === 'POST' && path === '/api/auth/exchange') {
     await limit(db, `auth-exchange:${ip}`, 30, 15 * 60_000);
@@ -751,7 +773,11 @@ export async function handleApi(
         : status === 409
           ? 'Este dato ya está registrado.'
           : 'No se pudo completar la operación. Inténtalo de nuevo.';
-    if (url.pathname === '/api/auth/chatgpt') {
+    if (
+      url.pathname === '/api/auth/chatgpt' ||
+      (url.pathname === '/api/auth/start' &&
+        request.headers.get('content-type')?.startsWith('application/x-www-form-urlencoded'))
+    ) {
       const escaped = message
         .replaceAll('&', '&amp;')
         .replaceAll('<', '&lt;')
@@ -765,7 +791,7 @@ export async function handleApi(
   const headers = new Headers(response.headers);
   if (!headers.has('cache-control')) headers.set('cache-control', 'no-store');
   headers.set('x-content-type-options', 'nosniff');
-  headers.set('referrer-policy', 'no-referrer');
+  if (!headers.has('referrer-policy')) headers.set('referrer-policy', 'no-referrer');
   if (origin) {
     headers.set('access-control-allow-origin', origin);
     headers.set('access-control-allow-credentials', 'true');

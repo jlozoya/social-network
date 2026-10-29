@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { ArrowUpRight } from 'lucide-react';
-import { api, useApp, useTask, Spinner } from './shared';
+import { api, useApp, Spinner } from './shared';
 import { siteUrl } from './origin';
 const support = 'jlozoya1995+socialnetwork@gmail.com';
 export default function AuthPanel({
@@ -11,13 +11,27 @@ export default function AuthPanel({
   done: () => void;
   chatgpt: (link: boolean, accepted: boolean) => Promise<void>;
 }) {
-  const { refreshUser } = useApp(),
-    { busy, task } = useTask();
+  const { refreshUser } = useApp();
   const [signup, setSignup] = useState(false),
-    [accepted, setAccepted] = useState(false);
+    [accepted, setAccepted] = useState(false),
+    [active, setActive] = useState<'password' | 'chatgpt' | null>(null),
+    [error, setError] = useState('');
+  const busy = active !== null;
+  async function task(kind: 'password' | 'chatgpt', action: () => Promise<void>) {
+    if (busy) return;
+    setActive(kind);
+    setError('');
+    try {
+      await action();
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'No se pudo completar el acceso.');
+    } finally {
+      setActive(null);
+    }
+  }
   return (
     <>
-      <p className="muted">Tu comunidad empieza con una conversación.</p>
+      <p className="muted">Inicia sesión o crea una cuenta.</p>
       <div className="tabs auth-tabs">
         <button className={!signup ? 'active' : ''} onClick={() => setSignup(false)}>
           Entrar
@@ -26,12 +40,17 @@ export default function AuthPanel({
           Crear cuenta
         </button>
       </div>
+      {error && (
+        <p className="inline-error" role="alert">
+          {error}
+        </p>
+      )}
       <form
         className="form"
         onSubmit={(e) => {
           e.preventDefault();
           const values = Object.fromEntries(new FormData(e.currentTarget));
-          void task(async () => {
+          void task('password', async () => {
             await api(signup ? '/api/auth/signup' : '/api/auth/login', 'POST', {
               ...values,
               termsAccepted: accepted,
@@ -90,30 +109,32 @@ export default function AuthPanel({
             placeholder={signup ? '12 caracteres o más' : 'Tu contraseña'}
           />
         </label>
-        <label className="checkbox-label">
-          <input
-            type="checkbox"
-            checked={accepted}
-            onChange={(e) => setAccepted(e.target.checked)}
-          />
-          <span>
-            Tengo 18 años o más y acepto los{' '}
-            <a href={siteUrl('/terms')} target="_blank" rel="noreferrer">
-              términos
-            </a>
-            , la{' '}
-            <a href={siteUrl('/privacy')} target="_blank" rel="noreferrer">
-              privacidad
-            </a>{' '}
-            y las{' '}
-            <a href={siteUrl('/community')} target="_blank" rel="noreferrer">
-              normas de comunidad
-            </a>
-            .
-          </span>
-        </label>
+        {signup && (
+          <label className="checkbox-label">
+            <input
+              type="checkbox"
+              checked={accepted}
+              onChange={(e) => setAccepted(e.target.checked)}
+            />
+            <span>
+              Tengo 18 años o más y acepto los{' '}
+              <a href={siteUrl('/terms')} target="_blank" rel="noreferrer">
+                términos
+              </a>
+              , la{' '}
+              <a href={siteUrl('/privacy')} target="_blank" rel="noreferrer">
+                privacidad
+              </a>{' '}
+              y las{' '}
+              <a href={siteUrl('/community')} target="_blank" rel="noreferrer">
+                normas de comunidad
+              </a>
+              .
+            </span>
+          </label>
+        )}
         <button className="button primary full" disabled={busy || (signup && !accepted)}>
-          {busy ? <Spinner /> : signup ? 'Crear mi cuenta' : 'Entrar a mi comunidad'}
+          {active === 'password' ? <Spinner /> : signup ? 'Crear mi cuenta' : 'Iniciar sesión'}
           <ArrowUpRight size={18} />
         </button>
       </form>
@@ -122,14 +143,17 @@ export default function AuthPanel({
       </div>
       <button
         className="button outline full"
-        disabled={busy || !accepted}
-        onClick={() => void task(() => chatgpt(false, accepted))}
+        disabled={busy || (signup && !accepted)}
+        onClick={() => void task('chatgpt', () => chatgpt(false, signup && accepted))}
       >
-        <span className="chatgpt-mark">✳</span> ChatGPT
+        {active === 'chatgpt' ? <Spinner /> : <span className="chatgpt-mark">✳</span>}
+        {active === 'chatgpt' ? 'Abriendo ChatGPT…' : 'ChatGPT'}
       </button>
       <p className="small muted">
-        Para continuar con ChatGPT, acepta primero los términos. Si ya tienes cuenta con este
-        correo, puedes vincularla desde Ajustes.
+        {signup
+          ? 'Para crear tu cuenta con ChatGPT, acepta primero los términos.'
+          : 'Entra con tu cuenta vinculada a ChatGPT. Si todavía no tienes cuenta, elige «Crear cuenta».'}{' '}
+        Si ya usas contraseña, puedes vincular ChatGPT desde Ajustes.
       </p>
       <a
         className="text-button small"

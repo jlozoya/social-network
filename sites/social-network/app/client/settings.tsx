@@ -47,7 +47,7 @@ export default function Settings({
         <p>Decide qué compartes y con quién conectas.</p>
       </div>
       <section className="card settings-card">
-        <h2>Así te ve la comunidad</h2>
+        <h2>Perfil público</h2>
         <div className="settings-photo">
           <Avatar person={user} size="large" />
           <div>
@@ -119,7 +119,7 @@ export default function Settings({
               defaultValue={user.bio}
               maxLength={500}
               rows={3}
-              placeholder="Lo que te mueve, tus intereses, una buena idea…"
+              placeholder="Describe tus intereses…"
             />
           </label>
           <label className="checkbox-label">

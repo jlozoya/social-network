@@ -28,9 +28,7 @@ export default function Chat({
   if (!user)
     return (
       <div className="card">
-        <Empty title="Tu próxima conversación empieza aquí">
-          Entra en tu cuenta para enviar mensajes.
-        </Empty>
+        <Empty title="Mensajes">Entra en tu cuenta para enviar mensajes.</Empty>
       </div>
     );
   const selected = resource.data?.data.find((c) => c.id === conversationId);
@@ -38,7 +36,7 @@ export default function Chat({
     <div className={`card chat-layout ${conversationId ? 'chat-selected' : ''}`}>
       <aside className="inbox">
         <div className="inbox-heading">
-          <span className="eyebrow">TU ESPACIO PARA HABLAR</span>
+          <span className="eyebrow">CONVERSACIONES</span>
           <h1>Mensajes</h1>
         </div>
         {resource.error && <InlineError message={resource.error} retry={resource.reload} />}
@@ -53,7 +51,7 @@ export default function Chat({
               <span>
                 <strong>{conversation.peers[0]?.displayName ?? 'Usuario eliminado'}</strong>
                 <span className="message-preview">
-                  {conversation.lastMessage ?? 'Empieza la conversación'}
+                  {conversation.lastMessage ?? 'Sin mensajes'}
                 </span>
               </span>
               {conversation.unread > 0 && <span className="unread">{conversation.unread}</span>}
@@ -83,7 +81,7 @@ export default function Chat({
               <Avatar person={selected?.peers[0] ?? { displayName: 'Conversación' }} />
               <span>
                 <strong>{selected?.peers[0]?.displayName ?? 'Conversación'}</strong>
-                <span className="post-date">Un espacio para conectar</span>
+                <span className="post-date">Mensaje directo</span>
               </span>
             </button>
           </div>
@@ -92,11 +90,7 @@ export default function Chat({
       ) : (
         <div className="chat-placeholder">
           <MessageCircle size={42} strokeWidth={1} />
-          <h2>
-            Las buenas conexiones
-            <br />
-            empiezan con un hola.
-          </h2>
+          <h2>Selecciona una conversación</h2>
           <p>Elige una conversación para continuar.</p>
         </div>
       )}
@@ -151,7 +145,7 @@ function Messages({ conversationId }: { conversationId: string }) {
         )}
         {resource.loading && !resource.data && <Spinner />}
         {!resource.loading && !messages.length && (
-          <Empty title="Dile hola">Este puede ser el inicio de una buena conversación.</Empty>
+          <Empty title="Sin mensajes">Escribe un mensaje para iniciar la conversación.</Empty>
         )}
         {messages.map((message) => (
           <div

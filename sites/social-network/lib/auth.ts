@@ -211,6 +211,7 @@ export async function completeChatGPT(
   env: Bindings,
   request: Request,
   identity: Identity,
+  consentAccepted = false,
 ): Promise<Response> {
   const url = new URL(request.url);
   const flowId = url.searchParams.get('flow') ?? '';
@@ -257,11 +258,7 @@ export async function completeChatGPT(
         409,
         'Este correo ya tiene cuenta. Entra con contraseña y vincula ChatGPT desde Ajustes.',
       );
-    if (!flow.terms_accepted)
-      throw new ApiError(
-        400,
-        'Acepta los términos y las normas antes de crear tu cuenta con ChatGPT.',
-      );
+    if (!flow.terms_accepted && !consentAccepted) return chatGPTSignupConsent(flow.id);
     const userId = newId();
     const handle = `persona_${userId.replaceAll('-', '').slice(0, 12)}`;
     const admin = (env.ADMIN_EMAILS ?? '')
@@ -311,6 +308,44 @@ export async function completeChatGPT(
         'referrer-policy': 'no-referrer',
         'content-security-policy':
           "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'",
+      },
+    },
+  );
+}
+
+function chatGPTSignupConsent(flowId: string): Response {
+  return new Response(
+    `<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Crea tu cuenta · Social Network</title>
+  <style>
+    *{box-sizing:border-box}body{margin:0;min-height:100dvh;display:grid;place-items:center;padding:24px;background:#f4f6ef;color:#20392c;font:16px/1.6 system-ui}
+    main{width:100%;max-width:480px;background:#fffefa;border:1px solid #dfe5d8;border-radius:22px;padding:32px;box-shadow:0 24px 80px #12302114}
+    .brand{font-weight:700;color:#ee6036}h1{font-size:28px;line-height:1.2;margin:20px 0}p{color:#63756a}label{display:flex;align-items:flex-start;gap:12px;margin:24px 0;font-size:14px}
+    input{margin-top:6px;accent-color:#ee6036}a{color:#bd431e}button{width:100%;border:0;border-radius:12px;padding:16px;background:#ee6036;color:white;font:700 16px system-ui;cursor:pointer}.back{display:block;text-align:center;margin-top:18px}
+  </style>
+</head>
+<body><main>
+  <div class="brand">Social Network</div>
+  <h1>Crea tu cuenta</h1>
+  <p>Tu identidad de ChatGPT está verificada. Como es tu primera visita, acepta los términos para crear tu cuenta de Social Network.</p>
+  <form method="post" action="/api/auth/chatgpt?flow=${encodeURIComponent(flowId)}" target="_top">
+    <label><input type="checkbox" name="consent" value="accepted" required><span>Tengo 18 años o más y acepto los <a href="/terms" target="_blank" rel="noreferrer">términos</a>, la <a href="/privacy" target="_blank" rel="noreferrer">privacidad</a> y las <a href="/community" target="_blank" rel="noreferrer">normas de comunidad</a>.</span></label>
+    <button type="submit">Crear mi cuenta y continuar</button>
+  </form>
+  <a class="back" href="/">Volver a Social Network</a>
+</main></body></html>`,
+    {
+      headers: {
+        'content-type': 'text/html; charset=utf-8',
+        'cache-control': 'no-store',
+        // Los formularios POST necesitan conservar el origen para la protección CSRF.
+        'referrer-policy': 'same-origin',
+        'content-security-policy':
+          "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
       },
     },
   );

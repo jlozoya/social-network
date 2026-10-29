@@ -99,14 +99,14 @@ function fixture() {
     assert.equal(response.status, 200);
     return { client: c, user: (await response.json()).user };
   }
-  async function chatgpt(address, existingClient = client(), link = false) {
+  async function chatgpt(address, existingClient = client(), link = false, accepted = true) {
     const verifier = 'v'.repeat(43),
       state = 's'.repeat(43);
     const started = await request(existingClient, '/api/auth/start', 'POST', {
       challenge: await digest(verifier),
       state,
-      termsAccepted: true,
-      ageConfirmed: true,
+      termsAccepted: accepted,
+      ageConfirmed: accepted,
       link,
     });
     assert.equal(started.status, 200);
@@ -256,6 +256,132 @@ test('chat con pertenencia, reintentos idempotentes y bloqueo en ambas direccion
   );
   assert.equal((await (await f.request(a.client, '/api/conversations')).json()).data.length, 0);
 });
+test('ChatGPT web: el formulario navega con 303 y conserva PKCE y consentimiento', async () => {
+  const f = fixture();
+  const verifier = 'v'.repeat(43),
+    state = 's'.repeat(43);
+  for (const accepted of [false, true]) {
+    const form = new URLSearchParams({
+      challenge: await digest(verifier),
+      state,
+      termsAccepted: String(accepted),
+      ageConfirmed: String(accepted),
+      native: 'true',
+      link: 'false',
+    });
+    const started = await handleApi(
+      new Request('https://social.test/api/auth/start', {
+        method: 'POST',
+        headers: { origin: 'https://social.test' },
+        body: form,
+      }),
+      f.env,
+    );
+    assert.equal(started.status, 303);
+    const callback = new URL(started.headers.get('location'));
+    assert.equal(callback.origin, 'https://social.test');
+    assert.equal(callback.pathname, '/api/auth/chatgpt');
+    const flow = f.sqlite
+      .prepare('SELECT * FROM login_flows WHERE id=?')
+      .get(callback.searchParams.get('flow'));
+    assert.equal(flow.native, 0);
+    assert.equal(flow.terms_accepted, Number(accepted));
+    const anonymous = await f.request(f.client(), callback.pathname + callback.search);
+    const signIn = new URL(anonymous.headers.get('location'));
+    assert.equal(anonymous.status, 303);
+    assert.equal(signIn.pathname, '/signin-with-chatgpt');
+    assert.equal(signIn.searchParams.get('return_to'), callback.pathname + callback.search);
+    const verified = await f.request(
+      f.client(),
+      callback.pathname + callback.search,
+      'GET',
+      undefined,
+      {
+        userId: 'web-identity',
+        email: 'web@example.test',
+        displayName: 'Web fixture',
+      },
+    );
+    if (!accepted) {
+      assert.equal(verified.status, 200);
+      assert.match(await verified.text(), /Crear mi cuenta y continuar/);
+      assert.equal(f.sqlite.prepare('SELECT count(*) n FROM users').get().n, 0);
+    } else {
+      assert.equal(verified.status, 303);
+      const destination = new URL(verified.headers.get('location'));
+      assert.equal(destination.origin, 'https://social.test');
+      assert.equal(destination.searchParams.get('state'), state);
+      const exchange = await f.request(f.client(), '/api/auth/exchange', 'POST', {
+        code: destination.searchParams.get('auth_code'),
+        state,
+        verifier,
+      });
+      assert.equal(exchange.status, 200);
+      assert.match(exchange.headers.get('set-cookie'), /HttpOnly/);
+    }
+  }
+});
+
+test('ChatGPT: un visitante nuevo completa el consentimiento después de identificarse', async () => {
+  const f = fixture();
+  const verifier = 'v'.repeat(43),
+    state = 's'.repeat(43);
+  const started = await f.request(f.client(), '/api/auth/start', 'POST', {
+    challenge: await digest(verifier),
+    state,
+    termsAccepted: false,
+    ageConfirmed: false,
+  });
+  const callback = new URL((await started.json()).url);
+  const identity = {
+    userId: 'new-chatgpt-user',
+    email: 'new@example.test',
+    displayName: 'New visitor',
+  };
+  const submit = (consent, origin = callback.origin, verified = identity) =>
+    handleApi(
+      new Request(callback, {
+        method: 'POST',
+        headers: { origin },
+        body: new URLSearchParams({ consent }),
+      }),
+      f.env,
+      verified,
+    );
+  const pending = await f.request(
+    f.client(),
+    callback.pathname + callback.search,
+    'GET',
+    undefined,
+    identity,
+  );
+  assert.equal(pending.status, 200);
+  assert.equal(pending.headers.get('referrer-policy'), 'same-origin');
+  assert.match(await pending.text(), /name="consent"/);
+  assert.equal((await submit('')).status, 200);
+  assert.equal((await submit('false')).status, 200);
+  assert.equal((await submit('accepted', 'https://other.test')).status, 403);
+  assert.equal((await submit('accepted', 'null')).status, 403);
+  assert.equal(f.sqlite.prepare('SELECT count(*) n FROM users').get().n, 0);
+  assert.equal(f.sqlite.prepare('SELECT count(*) n FROM auth_codes').get().n, 0);
+  assert.equal((await submit('accepted', callback.origin, null)).status, 303);
+  assert.equal(f.sqlite.prepare('SELECT count(*) n FROM users').get().n, 0);
+  const completed = await submit('accepted');
+  assert.equal(completed.status, 303);
+  const destination = new URL(completed.headers.get('location'));
+  assert.equal(destination.searchParams.get('state'), state);
+  const exchanged = await f.request(f.client(), '/api/auth/exchange', 'POST', {
+    code: destination.searchParams.get('auth_code'),
+    state,
+    verifier,
+  });
+  assert.equal(exchanged.status, 200);
+  const user = f.sqlite.prepare('SELECT chatgpt_id,terms_accepted_at FROM users').get();
+  assert.equal(user.chatgpt_id, identity.userId);
+  assert.ok(user.terms_accepted_at > 0);
+  assert.equal(f.sqlite.prepare('SELECT count(*) n FROM users').get().n, 1);
+});
+
 test('ChatGPT: PKCE, estado, código de un uso, vinculación explícita y administración verificada', async () => {
   const f = fixture(),
     a = await f.signup('alice');
@@ -304,6 +430,22 @@ test('ChatGPT: PKCE, estado, código de un uso, vinculación explícita y admini
   assert.equal((await (await f.request(owner.client, '/api/session')).json()).user.role, 'admin');
   assert.equal((await f.request(owner.client, '/api/moderation/reports')).status, 200);
 });
+test('ChatGPT: entrar en una cuenta existente no vuelve a exigir consentimiento', async () => {
+  const f = fixture();
+  await f.chatgpt('returning@example.test');
+  const before = f.sqlite.prepare('SELECT id,terms_accepted_at FROM users').get();
+  const returning = await f.chatgpt('returning@example.test', f.client(), false, false);
+  assert.equal(returning.response.status, 303);
+  const exchanged = await f.request(returning.client, '/api/auth/exchange', 'POST', {
+    code: new URL(returning.response.headers.get('location')).searchParams.get('auth_code'),
+    state: returning.state,
+    verifier: returning.verifier,
+  });
+  assert.equal(exchanged.status, 200);
+  assert.deepEqual(f.sqlite.prepare('SELECT id,terms_accepted_at FROM users').get(), before);
+  assert.equal(f.sqlite.prepare('SELECT count(*) n FROM users').get().n, 1);
+});
+
 test('moderación aplica retirada y suspensión, sin dar acceso global al chat a otros usuarios', async () => {
   const f = fixture(),
     a = await f.signup('alice'),

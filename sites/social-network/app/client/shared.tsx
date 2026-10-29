@@ -132,12 +132,13 @@ export function useTask() {
 }
 export function useResource<T>(path: string | null, version = 0) {
   const [data, setData] = useState<T | null>(null),
-    [loading, setLoading] = useState(false),
+    [loading, setLoading] = useState(!!path),
     [error, setError] = useState(''),
     [retry, setRetry] = useState(0);
   useEffect(() => {
     if (!path) {
       setData(null);
+      setLoading(false);
       return;
     }
     let alive = true;
