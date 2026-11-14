@@ -1,6 +1,6 @@
 # Integración continua.
 #
-# Se ejecuta en cada rama y en cada pull request. Cuatro trabajos en paralelo:
+# Se ejecuta al actualizar master y en cada pull request, sin duplicar ambos eventos.
 #
 # - checks: tipos, lint —ESLint, Stylelint, traducciones y formato con
 #           Prettier— y pruebas unitarias de los tres paquetes.
@@ -15,7 +15,7 @@ name: CI
 
 on:
   push:
-    branches: ['**']
+    branches: [master]
   pull_request:
   workflow_call:
 
